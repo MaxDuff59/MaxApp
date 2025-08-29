@@ -361,8 +361,9 @@ export async function generateAndSaveAISummary(req, res) {
     // Generate AI analysis
     const prompt = `
     HEALTH TRACKING ANALYSIS for ${user_id} (last 7 days)
+    (Les scores = 0 indiquent une absence de donnée (= un nan) et non une valeur égale à 0)
 
-    QUESTIONS PART 1 (Scale = 0-10):
+    QUESTIONS PART 1 (Scale = 1-10):
     - Sleep: ${data.sleep.join(', ')} (Avg: ${averages.sleep.toFixed(1)})
     - Motivation: ${data.motivation.join(', ')} (Avg: ${averages.motivation.toFixed(1)})
 
