@@ -30,7 +30,7 @@ router.get("/ai/summary/today", getTodaysAISummary);
 
 // Mail Report
 
-router.post("/mail/send", getTodaysAISummary);
+router.post("/mail/send", generateMailReport);
 
 
 export default router;
