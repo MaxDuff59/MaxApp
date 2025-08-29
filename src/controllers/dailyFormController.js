@@ -362,11 +362,11 @@ export async function getAIsummary(req, res) {
     const prompt = `
     HEALTH TRACKING ANALYSIS for ${user_id} (last 7 days)
 
-    MORNING (0-10):
+    QUESTIONS PART 1 (Scale = 0-10):
     - Sleep: ${data.sleep.join(', ')} (Avg: ${averages.sleep.toFixed(1)})
     - Motivation: ${data.motivation.join(', ')} (Avg: ${averages.motivation.toFixed(1)})
 
-    EVENING (1-3):
+    QUESTIONS PART 2 (Scale = 1-3):
     - Mood: ${data.mood.join(', ')} (Avg: ${averages.mood.toFixed(1)})
     - Lift: ${data.lift.join(', ')} (Avg: ${averages.lift.toFixed(1)})
     - Endurance: ${data.endurance.join(', ')} (Avg: ${averages.endurance.toFixed(1)})
