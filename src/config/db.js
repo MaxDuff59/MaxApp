@@ -33,13 +33,14 @@ export async function initDB() {
     `;
 
     await sql`
-      CREATE TABLE IF NOT EXISTS aiSummary(
-        id SERIAL PRIMARY KEY,
-        user_id VARCHAR(255) NOT NULL,
-        ai_summary TEXT NOT NULL,
-        created_at DATE NOT NULL DEFAULT CURRENT_DATE
-      )
-    `;
+      CREATE TABLE IF NOT EXISTS aiSummary (
+          id SERIAL PRIMARY KEY,
+          user_id VARCHAR NOT NULL,
+          ai_summary TEXT NOT NULL,
+          created_at DATE NOT NULL,
+          UNIQUE(user_id, created_at)
+      )`;
+
 
     console.log('Database initialized successfully.');
   } catch (error) {
