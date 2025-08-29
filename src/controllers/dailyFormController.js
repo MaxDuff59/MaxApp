@@ -335,7 +335,7 @@ export async function getLastSevenDaysArraysNight(req, res) {
   }
 }
 
-export async function getAIsummary(req, res) {
+export async function generateAndSaveAISummary(req, res) {
   try {
     const { user_id, data } = req.body;
 
@@ -346,8 +346,7 @@ export async function getAIsummary(req, res) {
       });
     }
 
-    // data ressemble à { sleep:[...], motivation:[...], mood:[...], lift:[...], endurance:[...], chess:[...] }
-
+    // Calculate averages (same as getAIsummary)
     const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
 
     const averages = {
@@ -359,6 +358,7 @@ export async function getAIsummary(req, res) {
       chess: avg(data.chess.filter(v => v>0)),
     };
 
+    // Generate AI analysis
     const prompt = `
     HEALTH TRACKING ANALYSIS for ${user_id} (last 7 days)
 
@@ -377,46 +377,83 @@ export async function getAIsummary(req, res) {
     2. Trends & correlations
     3. Strengths & risks
     4. 3 concrete recommendations
-    Keep it <150 words, supportive, practical. Provide the recommendations in a Mardown list format. Returns everything in French !
+    Keep it <150 words, supportive, practical. Provide the recommendations on the next line in a Markdown list format. Returns everything in French !
     `;
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }]}]
-      })
-    });
+    let analysisText = '';
 
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(`Gemini API error: ${resp.status} ${body}`);
+    try {
+      // Try to get AI analysis from Gemini
+      const apiKey = process.env.GEMINI_API_KEY;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }]}]
+        })
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Gemini API error: ${resp.status}`);
+      }
+
+      const json = await resp.json();
+      analysisText = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    } catch (aiError) {
+      console.warn('AI analysis failed, using fallback:', aiError);
+      
+      // Use fallback summary if AI fails
+      const morningCount = data.sleep.filter(v => v > 0).length;
+      const nightCount = data.mood.filter(v => v > 0).length;
+      analysisText = simpleFallbackSummary(averages, morningCount, nightCount);
     }
 
-    const json = await resp.json();
-    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    // Trim the analysis text
+    analysisText = analysisText.trim();
 
+    // Save the analysis to database
+    let savedSummary = null;
+    try {
+      const rows = await sql`
+        INSERT INTO aiSummary (user_id, ai_summary, created_at)
+        VALUES (${user_id}, ${analysisText}, CURRENT_DATE)
+        ON CONFLICT (user_id, created_at)
+        DO UPDATE SET
+          ai_summary = ${analysisText},
+          updated_at = CURRENT_TIMESTAMP
+        RETURNING user_id, ai_summary, created_at, updated_at
+      `;
+      savedSummary = rows[0];
+    } catch (dbError) {
+      console.error('Failed to save AI summary to database:', dbError);
+      // Continue execution - we'll still return the analysis even if save fails
+    }
+
+    // Return both the analysis and save confirmation
     return res.json({
       success: true,
-      analysis: text.trim(),
-      averages
+      analysis: analysisText,
+      averages,
+      saved: savedSummary ? true : false,
+      savedData: savedSummary,
+      message: savedSummary 
+        ? 'AI summary generated and saved successfully' 
+        : 'AI summary generated but failed to save to database'
     });
 
   } catch (err) {
-    console.error('getAIsummary error:', err);
+    console.error('generateAndSaveAISummary error:', err);
     return res.status(500).json({
       success: false,
-      message: 'Unable to generate AI analysis',
+      message: 'Unable to generate and save AI analysis',
       error: process.env.NODE_ENV === 'development' ? String(err) : undefined
     });
   }
 }
 
-
-// petit fallback simple, réutilisable
 function simpleFallbackSummary(averages, morningCount, nightCount) {
   const lines = [];
   lines.push(`Semaine synthèse (fallback):`);
@@ -426,5 +463,29 @@ function simpleFallbackSummary(averages, morningCount, nightCount) {
   lines.push(`• Actions: 1) heure de coucher fixe 2) 2 séances d’endurance modérée 3) 1 séance force + mobilité 4) routine “shutdown” 15 min avant dodo.`);
   return lines.join('\n');
 }
+
+export async function getTodaysAISummary(req, res) {
+  try {
+    
+    const userId = req.query.user_id || req.params.user_id || req.body.user_id;
+    if (!userId) return res.status(400).json({ message: "Missing user_id" });
+
+    const rows = await sql`
+      SELECT ai_summary, created_at
+      FROM aiSummary
+      WHERE user_id = ${userId}
+        AND created_at = CURRENT_DATE
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+
+    if (rows.length === 0) return res.status(204).send(); // No content today
+    return res.status(200).json(rows[0]);
+  } catch (error) {
+    console.error("Error fetching today's AI summary:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
 
 
