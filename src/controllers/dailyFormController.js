@@ -1,4 +1,5 @@
 import {sql} from "../config/db.js"
+import nodemailer from "nodemailer";
 
 function toScore(value, fieldName) {
   if (value === undefined || value === null) {
@@ -544,3 +545,57 @@ export async function getTodaysAISummary(req, res) {
     return res.status(500).json({ message: "Internal server error" });
   }
 }
+
+const GMAIL_USER = "maxenceduduff@gmail.com";
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: GMAIL_USER,
+    pass: process.env.GMAIL_PASSWORD, 
+  },
+});
+
+export async function generateMailReport(req, res) {
+  try {
+    const { to, subject, text, html, cc, bcc, attachments } = req.body;
+
+    if (!to || !subject || (!text && !html)) {
+      return res.status(400).json({
+        message: "Missing required fields: to, subject, and text or html",
+      });
+    }
+
+    // Basic mail options
+    const mailOptions = {
+      from: `"Max App" <${GMAIL_USER}>`, // must match the authenticated account
+      to,
+      cc,
+      bcc,
+      subject,
+      text,   // plain text version
+      html,   // HTML version
+      // Optional attachments: [{ filename, content|path|href, contentType }]
+      attachments,
+    };
+
+    // Send
+    const info = await transporter.sendMail(mailOptions);
+
+    return res.status(200).json({
+      message: "Email sent",
+      messageId: info.messageId,
+      accepted: info.accepted,
+      rejected: info.rejected,
+      response: info.response,
+    });
+  } catch (err) {
+    console.error("sendMail error:", err);
+    return res.status(502).json({
+      message: "Failed to send email",
+      error: err?.message || String(err),
+    });
+  }
+}
+
+
