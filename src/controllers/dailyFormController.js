@@ -377,7 +377,7 @@ export async function getAIsummary(req, res) {
     2. Trends & correlations
     3. Strengths & risks
     4. 3 concrete recommendations
-    Keep it <150 words, supportive, practical. Returns it in French !
+    Keep it <150 words, supportive, practical. Provide the recommendations in a Mardown list format. Returns everything in French !
     `;
 
     const apiKey = process.env.GEMINI_API_KEY;
