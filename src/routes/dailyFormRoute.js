@@ -1,7 +1,7 @@
 import express from "express"
 import {createFormMorning,checkMorningSubmission, getLastSevenDaysArraysMorning,
-    createFormNight,checkNightSubmission, getLastSevenDaysArraysNight
-} from "../controllers/dailyFormController.js"
+    createFormNight,checkNightSubmission, getLastSevenDaysArraysNight, 
+    getAIsummary} from "../controllers/dailyFormController.js"
 
 const router = express.Router()
 
@@ -20,6 +20,10 @@ router.post('/night', createFormNight)
 router.get('/night/check', checkNightSubmission);
 
 router.get('/night/last_seven', getLastSevenDaysArraysNight);
+
+// AI Summary
+
+router.post('/ai/analyze', getAIsummary);
 
 
 export default router;

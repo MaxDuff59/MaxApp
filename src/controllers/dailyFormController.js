@@ -335,9 +335,96 @@ export async function getLastSevenDaysArraysNight(req, res) {
   }
 }
 
+export async function getAIsummary(req, res) {
+  try {
+    const { user_id, data } = req.body;
+
+    if (!user_id || !data) {
+      return res.status(400).json({
+        success: false,
+        message: 'user_id and data are required'
+      });
+    }
+
+    // data ressemble à { sleep:[...], motivation:[...], mood:[...], lift:[...], endurance:[...], chess:[...] }
+
+    const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+
+    const averages = {
+      sleep: avg(data.sleep.filter(v => v>0)),
+      motivation: avg(data.motivation.filter(v => v>0)),
+      mood: avg(data.mood.filter(v => v>0)),
+      lift: avg(data.lift.filter(v => v>0)),
+      endurance: avg(data.endurance.filter(v => v>0)),
+      chess: avg(data.chess.filter(v => v>0)),
+    };
+
+    const prompt = `
+    HEALTH TRACKING ANALYSIS for ${user_id} (last 7 days)
+
+    MORNING (0-10):
+    - Sleep: ${data.sleep.join(', ')} (Avg: ${averages.sleep.toFixed(1)})
+    - Motivation: ${data.motivation.join(', ')} (Avg: ${averages.motivation.toFixed(1)})
+
+    EVENING (1-3):
+    - Mood: ${data.mood.join(', ')} (Avg: ${averages.mood.toFixed(1)})
+    - Lift: ${data.lift.join(', ')} (Avg: ${averages.lift.toFixed(1)})
+    - Endurance: ${data.endurance.join(', ')} (Avg: ${averages.endurance.toFixed(1)})
+    - Chess: ${data.chess.join(', ')} (Avg: ${averages.chess.toFixed(1)})
+
+    TASK: Provide:
+    1. Key observations
+    2. Trends & correlations
+    3. Strengths & risks
+    4. 3 concrete recommendations
+    Keep it <300 words, supportive, practical.
+    `;
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }]}]
+      })
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(`Gemini API error: ${resp.status} ${body}`);
+    }
+
+    const json = await resp.json();
+    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    return res.json({
+      success: true,
+      analysis: text.trim(),
+      averages
+    });
+
+  } catch (err) {
+    console.error('getAIsummary error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to generate AI analysis',
+      error: process.env.NODE_ENV === 'development' ? String(err) : undefined
+    });
+  }
+}
 
 
-
-
+// petit fallback simple, réutilisable
+function simpleFallbackSummary(averages, morningCount, nightCount) {
+  const lines = [];
+  lines.push(`Semaine synthèse (fallback):`);
+  lines.push(`• Sommeil moyen: ${averages.sleep.toFixed(1)}/10 | Motivation: ${averages.motivation.toFixed(1)}/10`);
+  lines.push(`• Soir: Humeur ${averages.mood.toFixed(1)}, Force ${averages.lift.toFixed(1)}, Endurance ${averages.endurance.toFixed(1)}, Échecs ${averages.chess.toFixed(1)} (échelle 1-3)`);
+  lines.push(`• Couverture: matin ${morningCount}/7, soir ${nightCount}/7`);
+  lines.push(`• Actions: 1) heure de coucher fixe 2) 2 séances d’endurance modérée 3) 1 séance force + mobilité 4) routine “shutdown” 15 min avant dodo.`);
+  return lines.join('\n');
+}
 
 

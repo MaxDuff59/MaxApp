@@ -14,7 +14,7 @@ app.use(ratelimiter)
 app.use(express.json())
 
 app.use(cors({
-  origin: ['https://maxapp.onrender.com'], // Expo web often uses 19006 too
+  origin: ['http://localhost:8081', 'http://localhost:19006'], // Expo web often uses 19006 too
   methods: ['GET','POST','PUT','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
   credentials: true, 
@@ -22,7 +22,6 @@ app.use(cors({
 
 
 const PORT = process.env.PORT || 5001
-
 
 app.use("/api/dailyform", dailyFormRoute)
 
