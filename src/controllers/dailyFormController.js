@@ -1,5 +1,6 @@
 import {sql} from "../config/db.js"
 import nodemailer from "nodemailer";
+import twilio from "twilio";
 
 function toScore(value, fieldName) {
   if (value === undefined || value === null) {
@@ -516,7 +517,6 @@ function simpleFallbackSummary(averages, morningCount, nightCount) {
   return lines.join('\n');
 }
 
-// Fixed version of the retrieval function
 export async function getTodaysAISummary(req, res) {
   try {
     const userId = req.query.user_id || req.params.user_id || req.body.user_id;
@@ -546,6 +546,8 @@ export async function getTodaysAISummary(req, res) {
   }
 }
 
+/// Mail Report 
+
 const GMAIL_USER = "maxenceduduff@gmail.com";
 
 const transporter = nodemailer.createTransport({
@@ -558,6 +560,7 @@ const transporter = nodemailer.createTransport({
 
 export async function generateMailReport(req, res) {
   try {
+
     const { to, subject, text, html, cc, bcc, attachments } = req.body;
 
     if (!to || !subject || (!text && !html)) {
@@ -582,6 +585,8 @@ export async function generateMailReport(req, res) {
     // Send
     const info = await transporter.sendMail(mailOptions);
 
+    console.log('Email sent.')
+
     return res.status(200).json({
       message: "Email sent",
       messageId: info.messageId,
@@ -595,6 +600,29 @@ export async function generateMailReport(req, res) {
       message: "Failed to send email",
       error: err?.message || String(err),
     });
+  }
+}
+
+/// Whatsapp report
+
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+export async function generateWhatsappReport(req,res) {
+    try {
+
+    const { to, body, mediaUrl } = req.body;
+    const msg = await client.messages.create({
+      from: "whatsapp:+14155238886",     // Twilio sandbox or your approved number
+      to: `whatsapp:${to}`,
+      body,
+      ...(mediaUrl ? { mediaUrl } : {})
+    });   
+
+    console.log('Whatsapp sent.')
+    return res.status(200).json({message: "Whatsapp sent",messageId: msg.sid,status: msg.status});
+  } catch (err) {
+    console.error("sendWhatsapp error:", err);
+    return res.status(502).json({message: "Failed to send whatsapp",error: err?.message || String(err),});
   }
 }
 

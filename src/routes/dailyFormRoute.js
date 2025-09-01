@@ -1,7 +1,8 @@
 import express from "express"
 import {createFormMorning,checkMorningSubmission, getLastSevenDaysArraysMorning,
     createFormNight,checkNightSubmission, getLastSevenDaysArraysNight, 
-    generateAndSaveAISummary, getTodaysAISummary, generateMailReport}
+    generateAndSaveAISummary, getTodaysAISummary, 
+    generateMailReport, generateWhatsappReport}
     from "../controllers/dailyFormController.js"
 
 const router = express.Router()
@@ -32,5 +33,8 @@ router.get("/ai/summary/today", getTodaysAISummary);
 
 router.post("/mail/send", generateMailReport);
 
+// Whatsapp Report
+
+router.post("/whatsapp/send", generateWhatsappReport);
 
 export default router;
